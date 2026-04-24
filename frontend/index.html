@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BFHL — Node Hierarchy Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0b0c10;
+    --surface: #13141a;
+    --surface2: #1c1e27;
+    --border: #2a2d3a;
+    --accent: #00e5ff;
+    --accent2: #ff3cac;
+    --accent3: #ffe94e;
+    --green: #39ff85;
+    --text: #e8eaf0;
+    --muted: #5c6070;
+    --radius: 6px;
+    --font-mono: 'Space Mono', monospace;
+    --font-display: 'Syne', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    margin-bottom: 48px;
+    animation: fadeDown .5s ease both;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 3px 10px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -.02em;
+  }
+  h1 span { color: var(--accent); }
+  .subtitle {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 20px;
+    animation: fadeUp .5s ease .1s both;
+  }
+  .card-label {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-label::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  .url-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .url-row input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .url-row input:focus { border-color: var(--accent); }
+
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 14px;
+    resize: vertical;
+    min-height: 140px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  .hint {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .hint code {
+    color: var(--accent3);
+    background: rgba(255,233,78,.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ── Buttons ── */
+  .btn-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  button {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: var(--radius);
+    padding: 11px 24px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #33ecff; transform: translateY(-1px); box-shadow: 0 4px 24px rgba(0,229,255,.35); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { color: var(--text); border-color: var(--muted); }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,0,0,.3);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+
+  .error-box {
+    background: rgba(255,60,172,.08);
+    border: 1px solid rgba(255,60,172,.4);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    color: var(--accent2);
+    font-size: 13px;
+    margin-bottom: 20px;
+    animation: fadeUp .3s ease both;
+  }
+
+  #response { animation: fadeUp .4s ease both; }
+
+  .summary-strip {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .stat-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    flex: 1;
+    min-width: 140px;
+    text-align: center;
+  }
+  .stat-chip .val {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--accent);
+    display: block;
+  }
+  .stat-chip .lbl {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-top: 2px;
+    display: block;
+  }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 28px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .hier-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .hier-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    transition: border-color .2s, transform .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .hier-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .hier-card.cycle { border-color: rgba(255,60,172,.3); }
+  .hier-card.cycle:hover { border-color: var(--accent2); }
+
+  .hier-card::before {
+    content: attr(data-root);
+    position: absolute;
+    top: -6px; right: 10px;
+    font-family: var(--font-display);
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: rgba(0,229,255,.04);
+    pointer-events: none;
+    user-select: none;
+    line-height: 1;
+  }
+  .hier-card.cycle::before { color: rgba(255,60,172,.05); }
+
+  .hier-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .hier-root {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .hier-card.cycle .hier-root { color: var(--accent2); }
+
+  .badge {
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .badge-cycle { background: rgba(255,60,172,.15); color: var(--accent2); }
+  .badge-tree  { background: rgba(0,229,255,.1);   color: var(--accent); }
+
+  .depth-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .depth-pill strong { color: var(--accent3); font-size: 1rem; }
+
+  /* ── Tree rendering ── */
+  .tree-view { font-size: 12px; line-height: 1.8; }
+  .tree-view ul { list-style: none; padding-left: 20px; }
+  .tree-view li { position: relative; }
+  .tree-view li::before {
+    content: '├─ ';
+    color: var(--muted);
+    position: absolute;
+    left: -20px;
+  }
+  .tree-view li:last-child::before { content: '└─ '; }
+  .node-label {
+    display: inline-block;
+    background: rgba(0,229,255,.08);
+    color: var(--accent);
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-weight: 700;
+    font-family: var(--font-display);
+  }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .entry-tag {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 3px;
+    border: 1px solid;
+    font-family: var(--font-mono);
+  }
+  .entry-tag.invalid { border-color: rgba(255,60,172,.4); color: var(--accent2); background: rgba(255,60,172,.07); }
+  .entry-tag.dup     { border-color: rgba(255,233,78,.35); color: var(--accent3); background: rgba(255,233,78,.07); }
+  .empty-note { color: var(--muted); font-size: 12px; font-style: italic; }
+
+  .json-toggle {
+    margin-top: 28px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .json-toggle summary {
+    padding: 10px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: var(--surface);
+    list-style: none;
+    user-select: none;
+    transition: color .2s;
+  }
+  .json-toggle summary:hover { color: var(--text); }
+  .json-toggle pre {
+    background: var(--surface2);
+    padding: 18px;
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-x: auto;
+    color: #a5b0c8;
+    max-height: 400px;
+  }
+
+  @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:none; } }
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(12px);  } to { opacity:1; transform:none; } }
+  @keyframes spin     { to { transform:rotate(360deg); } }
+  @keyframes pulse    { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="tag">SRM Challenge · Round 1</div>
+    <h1>Node <span>Hierarchy</span><br>Explorer</h1>
+    <p class="subtitle">POST /bfhl — tree analysis & cycle detection</p>
+  </header>
+
+  <div class="card">
+    <div class="card-label">API Endpoint</div>
+    <div class="url-row">
+      <input id="apiUrl" type="text" value="http://localhost:3000/bfhl" placeholder="https://your-api.onrender.com/bfhl" />
+    </div>
+
+    <div class="card-label" style="margin-top:8px">Node Edges</div>
+    <textarea id="input" placeholder='Enter edges, one per line or comma-separated:
+
+A->B
+A->C
+B->D
+X->Y, Y->Z, Z->X
+hello, 1->2, A->'></textarea>
+    <p class="hint">Each edge: <code>X->Y</code> where X and Y are single uppercase letters. Separate by newline or comma.</p>
+
+    <div class="btn-row">
+      <button class="btn-primary" id="submitBtn" onclick="submit()">
+        ▶ Analyse
+      </button>
+      <button class="btn-secondary" onclick="loadExample()">Load Example</button>
+      <button class="btn-secondary" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+
+  <div id="errorBox" style="display:none"></div>
+  <div id="response" style="display:none"></div>
+
+</div>
+
+<script>
+const EXAMPLE = `A->B\nA->C\nB->D\nC->E\nE->F\nX->Y\nY->Z\nZ->X\nP->Q\nQ->R\nG->H\nG->H\nG->I\nhello\n1->2\nA->`;
+
+function loadExample() {
+  document.getElementById('input').value = EXAMPLE;
+}
+function clearAll() {
+  document.getElementById('input').value = '';
+  document.getElementById('response').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+}
+
+async function submit() {
+  const raw = document.getElementById('input').value.trim();
+  const url = document.getElementById('apiUrl').value.trim();
+  const btn = document.getElementById('submitBtn');
+  const errBox = document.getElementById('errorBox');
+  const respDiv = document.getElementById('response');
+
+  errBox.style.display = 'none';
+  respDiv.style.display = 'none';
+
+  if (!raw) { showError('Please enter at least one edge.'); return; }
+  if (!url)  { showError('Please enter the API URL.'); return; }
+
+  // Parse input: split by newline or comma, trim each
+  const data = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+
+  btn.innerHTML = '<span class="spinner"></span> Analysing…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+    const json = await res.json();
+    render(json);
+  } catch (e) {
+    showError(`API call failed: ${e.message}`);
+  } finally {
+    btn.innerHTML = '▶ Analyse';
+    btn.disabled = false;
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.innerHTML = `⚠ ${msg}`;
+  box.style.display = 'block';
+}
+
+function render(data) {
+  const div = document.getElementById('response');
+  const { summary, hierarchies, invalid_entries, duplicate_edges, user_id, email_id, college_roll_number } = data;
+
+  let html = '';
+
+  // Identity row
+  html += `
+  <div class="card" style="padding:16px 20px; display:flex; gap:24px; flex-wrap:wrap; font-size:12px; color:var(--muted);">
+    <span>👤 <strong style="color:var(--text)">${user_id}</strong></span>
+    <span>✉ <strong style="color:var(--text)">${email_id}</strong></span>
+    <span>🎓 <strong style="color:var(--text)">${college_roll_number}</strong></span>
+  </div>`;
+
+  // Summary strip
+  html += `<div class="summary-strip">
+    <div class="stat-chip"><span class="val">${summary.total_trees}</span><span class="lbl">Trees</span></div>
+    <div class="stat-chip"><span class="val" style="color:var(--accent2)">${summary.total_cycles}</span><span class="lbl">Cycles</span></div>
+    <div class="stat-chip"><span class="val" style="color:var(--accent3)">${summary.largest_tree_root || '—'}</span><span class="lbl">Largest Root</span></div>
+    <div class="stat-chip"><span class="val" style="color:var(--green)">${hierarchies.length}</span><span class="lbl">Groups</span></div>
+  </div>`;
+
+  // Hierarchies
+  html += `<div class="section-title">Hierarchies</div><div class="hier-grid">`;
+  for (const h of hierarchies) {
+    const isCycle = !!h.has_cycle;
+    html += `<div class="hier-card ${isCycle ? 'cycle' : ''}" data-root="${h.root}">
+      <div class="hier-header">
+        <div class="hier-root">${h.root}</div>
+        <span class="badge ${isCycle ? 'badge-cycle' : 'badge-tree'}">${isCycle ? '⟳ Cycle' : '✓ Tree'}</span>
+      </div>`;
+    if (!isCycle) {
+      html += `<div class="depth-pill">Depth <strong>${h.depth}</strong></div>`;
+      html += `<div class="tree-view">${renderTree(h.tree)}</div>`;
+    } else {
+      html += `<p style="color:var(--muted);font-size:12px;font-style:italic;">Cyclic group — no tree structure available.</p>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+
+  html += `<div class="section-title">Invalid Entries</div>`;
+  if (invalid_entries.length) {
+    html += `<div class="tag-list">` + invalid_entries.map(e =>
+      `<span class="entry-tag invalid">${escHtml(e) || '(empty)'}</span>`).join('') + `</div>`;
+  } else {
+    html += `<p class="empty-note">None</p>`;
+  }
+
+  html += `<div class="section-title">Duplicate Edges</div>`;
+  if (duplicate_edges.length) {
+    html += `<div class="tag-list">` + duplicate_edges.map(e =>
+      `<span class="entry-tag dup">${escHtml(e)}</span>`).join('') + `</div>`;
+  } else {
+    html += `<p class="empty-note">None</p>`;
+  }
+
+
+  html += `<details class="json-toggle">
+    <summary>Raw JSON Response</summary>
+    <pre>${escHtml(JSON.stringify(data, null, 2))}</pre>
+  </details>`;
+
+  div.innerHTML = html;
+  div.style.display = 'block';
+  div.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderTree(obj) {
+  const root = Object.keys(obj)[0];
+  if (!root) return '<span style="color:var(--muted);font-style:italic">empty</span>';
+  return `<ul style="padding-left:0"><li><span class="node-label">${root}</span>${renderChildren(obj[root])}</li></ul>`;
+}
+function renderChildren(obj) {
+  const keys = Object.keys(obj);
+  if (!keys.length) return '';
+  return '<ul>' + keys.map(k =>
+    `<li><span class="node-label">${k}</span>${renderChildren(obj[k])}</li>`
+  ).join('') + '</ul>';
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit();
+});
+</script>
+</body>
+</html>
