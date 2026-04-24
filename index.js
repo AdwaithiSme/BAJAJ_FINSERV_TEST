@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require('dotenv').config();
+const path = require("path");
 
 const app = express();
 app.use(cors());
@@ -54,6 +55,10 @@ function calcDepth(node, children) {
   if (kids.length === 0) return 1;
   return 1 + Math.max(...kids.map(c => calcDepth(c, children)));
 }
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "frontend", "index.html"));
+});
 
 app.post("/bfhl", (req, res) => {
   const data = req.body?.data;
